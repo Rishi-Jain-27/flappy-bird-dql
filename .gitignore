@@ -2,3 +2,7 @@
 .python-version
 .venv_311
 .venv
+__pycache__
+env
+venv
+venv_311
