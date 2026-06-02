@@ -112,22 +112,31 @@ class Agent:
                     step_count = 0
                     
 def optimize(self, mini_batch, policy_dqn, target_dqn):
-    for state, action, new_state, reward, terminated in mini_batch:
-        if terminated:
-            target_q = reward
-        else:
-            with torch.inference_mode():
-                target_q = reward + self.discount_factor_g * target_dqn(new_state.unsqueeze(dim=0)).max()
-        
-        current_q = policy_dqn(state.unsqueeze(dim=0))
+    # Tranpose the list of experiences and separate each element
+    states, actions, new_states, rewards, terminations = zip(*mini_batch)
 
-        # Compute loss for the whole minibatch
-        loss = self.loss_fn(current_q, target_q)
+    # Stack tensors to create batch tensors
+    # tensor ([[1, 2, 3]]) -> tensor([[1, 2, 3, ...], [4, 5, 6, ...], ...])
+    states = torch.stack(states)
+    actions = torch.stack(actions)
+    new_states = torch.stack(new_states)
+    rewards = torch.stack(rewards)
+    terminations = torch.tensor(terminations).float().to(device)
 
-        # Optimize the model
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
+    with torch.inference_mode():
+        # Calculate target q values (expected return)
+        target_q = rewards + (1 - terminations) * self.discount_factor_g * target_dqn(new_states).max(dim=1)[0]
+
+    # Calculate q values from current policy network
+    current_q = policy_dqn(states).gather(dim=1, index=actions.unsqueeze(dim=1)).squeeze(dim=1)
+
+    # Compute loss for the whole minibatch
+    loss = self.loss_fn(current_q, target_q)
+
+    # Optimize the model
+    self.optimizer.zero_grad()
+    loss.backward()
+    self.optimizer.step()
 
 
 if __name__ == '__main__':
