@@ -5,6 +5,7 @@ To see a Deep Q Network playing, run in terminal: flappy_bird_gymnasium --mode d
 """
 
 import torch
+from torch import nn
 import flappy_bird_gymnasium
 import gymnasium
 from dqn import DQN
@@ -17,7 +18,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class Agent:
     def __init__(self, hyperparameter_set):
-        with open('hyperparameters.yaml', 'r') as file:
+        with open('hyperparameters.yml', 'r') as file:
             all_hyperparameter_sets = yaml.safe_load(file)
             hyperparameters = all_hyperparameter_sets[hyperparameter_set]
             # print(hyperparameters)
@@ -27,6 +28,11 @@ class Agent:
         self.epsilon_init = hyperparameters['epsilon_init']
         self.epsilon_decay = hyperparameters['epsilon_decay']
         self.epsilon_min = hyperparameters['epsilon_min']
+        self.learning_rate_a = hyperparameters['learning_rate_a']
+        self.discount_factor_g = hyperparameters['discount_factor_g']
+        
+        self.loss_fn = nn.MSELoss()
+        self.optimizer = None # NN optimizer, initialize later
 
     def run(self, is_training=True, render=False):
         # env = gymnasium.make("FlappyBird-v0", render_mode="human" if render else None, use_lidar=False)
@@ -44,6 +50,15 @@ class Agent:
 
             epsilon = self.epsilon_init
 
+            target_dqn = DQN(num_staes, num_actions).to(device)
+            target_dqn.load_state_dict(policy_dqn.state_dict())
+
+            # Track num steps taken for syncing target and policy networks
+            step_count = 0
+
+            self.optimizer = torch.optim.Adam(policy_dqn.parameters(), lr=self.learning_rate_a)
+
+
         for episode in itertools.count(): # train indefinitely, stop when we want to
             state, _ = env.reset()
             # convert state to a tensor
@@ -51,8 +66,8 @@ class Agent:
 
             terminated = False
             episode_reward = 0.0
-            while not terminated:
 
+            while not terminated:
                 if is_training and random.random() < epsilon:
                     action = env.action_space.sample() # explore
                     action = torch.tensor(action, dtype=torch.int64, device=device)
@@ -72,7 +87,9 @@ class Agent:
                 new_state = torch.tensor(new_state, dtype=torch.float, device=device)
                 reward = torch.tensor(reward, dtype=torch.float, device=device)
 
-                if is_training: memory.append((state, action, new_state, reward, terminated))
+                if is_training:
+                    memory.append((state, action, new_state, reward, terminated))
+                    step_count += 1
                 
                 # move to new state
                 state = new_state
@@ -81,6 +98,37 @@ class Agent:
 
             epsilon = max(epsilon * self.epsilon_decay, self.epsilon_min)
             epsilon_history.append(epsilon)
+
+            # if enough experiences have been collected
+            if len(memory) > self.mini_batch_size:
+                # Sample from memory
+                mini_batch = memory.sample(self.mini_batch_size)
+
+                self.optimize(mini_batch, policy_dqn, target_dqn)
+
+                # Copy policy network to target network after a certain num of steps
+                if step_count > self.network_sync_rate:
+                    target_dqn.load_state_dict(policy_dqn.state_dict())
+                    step_count = 0
+                    
+def optimize(self, mini_batch, policy_dqn, target_dqn):
+    for state, action, new_state, reward, terminated in mini_batch:
+        if terminated:
+            target_q = reward
+        else:
+            with torch.inference_mode():
+                target_q = reward + self.discount_factor_g * target_dqn(new_state.unsqueeze(dim=0)).max()
+        
+        current_q = policy_dqn(state.unsqueeze(dim=0))
+
+        # Compute loss for the whole minibatch
+        loss = self.loss_fn(current_q, target_q)
+
+        # Optimize the model
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+
 
 if __name__ == '__main__':
     agent = Agent('cartpole1')
