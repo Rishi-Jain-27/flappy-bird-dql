@@ -68,10 +68,13 @@ class Agent:
         start_time = datetime.now()
         last_graph_update_time = start_time
 
-        log_message = f"{start_time.strftime(DATE_FORMAT)}: Training starting"
+        log_message = f"{start_time.strftime(DATE_FORMAT)}: {'Training' if is_training else 'Testing'} starting"
         print(log_message, flush=True)
-        with open(self.LOG_FILE, 'w') as file:
-            file.write(log_message + '\n')
+        if is_training:
+            with open(self.LOG_FILE, 'w') as file:
+                file.write(log_message + '\n')
+        else:
+            print(log_message, flush=True)  # already printed above; could skip the file write entirely
 
         # Create instance of the environment
         # pass in **self.env_make_params to get env-specific parameters from hyperparameters.yml
