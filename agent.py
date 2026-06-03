@@ -233,7 +233,7 @@ class Agent:
         rewards = torch.stack(rewards)
         terminations = torch.tensor(terminations).float().to(device)
 
-        with torch.inference_mode():
+        with torch.no_grad():
             # Calculate target q values (expected return)
             target_q = rewards + (1 - terminations) * self.discount_factor_g * target_dqn(new_states).max(dim=1)[0]
 
