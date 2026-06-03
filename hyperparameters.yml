@@ -41,6 +41,5 @@ flappybird1:
   stop_on_reward: 100000
   fc1_nodes: 512
   env_make_params:
-    render_mode: human
     use_lidar: False
 
