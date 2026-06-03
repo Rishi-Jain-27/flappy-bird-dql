@@ -126,9 +126,10 @@ class Agent:
             state = torch.tensor(state, dtype=torch.float, device=device)
 
             terminated = False
+            truncated = False
             episode_reward = 0.0
 
-            while (not terminated and episode_reward < self.stop_on_reward):
+            while (not terminated and not truncated and episode_reward < self.stop_on_reward):
                 if is_training and random.random() < epsilon:
                     action = env.action_space.sample() # explore
                     action = torch.tensor(action, dtype=torch.int64, device=device)
@@ -139,7 +140,7 @@ class Agent:
                         # doing this bc the indices line up with the action space (0 is 0, 1 is 1)
 
                 # Processing:
-                new_state, reward, terminated, _, info = env.step(action.item())
+                new_state, reward, terminated, truncated, _ = env.step(action.item()) # _ is info
 
                 # Accumulate reward for this episode
                 episode_reward += float(reward)
@@ -164,7 +165,11 @@ class Agent:
             # Save model when best reward is achieved
             if is_training:
                 if episode_reward > best_reward:
-                    log_message = f"{datetime.now().strftime(DATE_FORMAT)}: New best reward {episode_reward:0.1f}"
+                    if best_reward == float('-inf') or best_reward == 0:
+                        pct_change = float('inf')
+                    else:
+                        pct_change = (episode_reward - best_reward) / abs(best_reward) * 100
+                    log_message = f"{datetime.now().strftime(DATE_FORMAT)}: Episode {episode}: New best reward {episode_reward:0.1f} ({pct_change:+.1f}%)"
                     print(log_message, flush=True)
 
                     with open(self.LOG_FILE, 'a') as file:
