@@ -42,7 +42,7 @@ class DQN(nn.Module):
             # Calc Q
             return (V + A - torch.mean(A, dim=1, keepdim=True))
         else:
-            return self.output(x)
+            return self.fc2(x)
 
 
 if __name__ == '__main__':

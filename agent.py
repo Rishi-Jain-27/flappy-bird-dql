@@ -246,7 +246,7 @@ class Agent:
         with torch.no_grad():
             if self.enable_double_dqn:
                 best_actions_from_policy = policy_dqn(new_states).argmax(dim=1)
-                target_q = rewards + (1 - terminations) * self.discount_factor_g * target_dqn(new_states).gather(dim=1, index=best_actions_from_policy.unsqueeze(dim=1)[0])
+                target_q = rewards + (1 - terminations) * self.discount_factor_g * target_dqn(new_states).gather(dim=1, index=best_actions_from_policy.unsqueeze(dim=1)).squeeze()
             else:
                 # Calculate target q values (expected return)
                 target_q = rewards + (1 - terminations) * self.discount_factor_g * target_dqn(new_states).max(dim=1)[0]
