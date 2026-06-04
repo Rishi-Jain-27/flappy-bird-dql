@@ -55,6 +55,7 @@ class Agent:
         self.fc1_nodes = hyperparameters['fc1_nodes']
         self.env_make_params = hyperparameters.get('env_make_params', {}) # get optional ev specific params
         self.enable_double_dqn = hyperparameters['enable_double_dqn']
+        self.enable_dueling_dqn = hyperparameters['enable_dueling_dqn']
         
         self.loss_fn = nn.MSELoss()
         self.optimizer: Optimizer | None = None  # init later at line 58
@@ -95,7 +96,7 @@ class Agent:
         rewards_per_episode = []
 
         # Create policy network
-        policy_dqn = DQN(num_states, num_actions, self.fc1_nodes).to(device)
+        policy_dqn = DQN(num_states, num_actions, self.fc1_nodes, self.enable_dueling_dqn).to(device)
 
         if is_training:
             # init epsilon
@@ -104,7 +105,7 @@ class Agent:
             memory = ReplayMemory(self.replay_memory_size) # we'll make it dynamic later
 
             # Create target network and make it identical to policy network
-            target_dqn = DQN(num_states, num_actions, self.fc1_nodes).to(device)
+            target_dqn = DQN(num_states, num_actions, self.fc1_nodes, self.enable_dueling_dqn).to(device)
             target_dqn.load_state_dict(policy_dqn.state_dict())
 
             # Create policy network optimizer
