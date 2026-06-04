@@ -53,7 +53,8 @@ class Agent:
 
         self.stop_on_reward = hyperparameters['stop_on_reward']
         self.fc1_nodes = hyperparameters['fc1_nodes']
-        self.env_make_params = hyperparameters.get('env_make_params', {})
+        self.env_make_params = hyperparameters.get('env_make_params', {}) # get optional ev specific params
+        self.enable_double_dqn = hyperparameters['enable_double_dqn']
         
         self.loss_fn = nn.MSELoss()
         self.optimizer: Optimizer | None = None  # init later at line 58
@@ -242,8 +243,12 @@ class Agent:
         terminations = torch.tensor(terminations).float().to(device)
 
         with torch.no_grad():
-            # Calculate target q values (expected return)
-            target_q = rewards + (1 - terminations) * self.discount_factor_g * target_dqn(new_states).max(dim=1)[0]
+            if self.enable_double_dqn:
+                best_actions_from_policy = policy_dqn(new_states).argmax(dim=1)
+                target_q = rewards + (1 - terminations) * self.discount_factor_g * target_dqn(new_states).gather(dim=1, index=best_actions_from_policy.unsqueeze(dim=1)[0])
+            else:
+                # Calculate target q values (expected return)
+                target_q = rewards + (1 - terminations) * self.discount_factor_g * target_dqn(new_states).max(dim=1)[0]
 
         # Calculate q values from current policy network
         current_q = policy_dqn(states).gather(dim=1, index=actions.unsqueeze(dim=1)).squeeze(dim=1)
